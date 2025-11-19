@@ -1,0 +1,3 @@
+# Ignore generated CSV file and Java binaries
+expenses.csv
+*.class
