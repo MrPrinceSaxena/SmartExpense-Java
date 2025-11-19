@@ -26,9 +26,7 @@ public class ExpenseManager {
     }
 
     public double totalAmount() {
-        return expenses.stream()
-                .mapToDouble(Expense::getAmount)
-                .sum();
+        return expenses.stream().mapToDouble(Expense::getAmount).sum();
     }
 
     private void saveExpenses() {
@@ -46,7 +44,6 @@ public class ExpenseManager {
     private void loadExpenses() {
         File file = new File(FILE);
         if (!file.exists()) return;
-
         try (BufferedReader reader = new BufferedReader(new FileReader(FILE))) {
             String line;
             while ((line = reader.readLine()) != null) {
