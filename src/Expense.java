@@ -23,9 +23,7 @@ public class Expense {
     public LocalDate getDate() { return date; }
     public String getNote() { return note; }
 
-    @Override
-    public String toString() {
-        return String.format("#%d | %s | %.2f | %s | %s",
-                id, category, amount, date, note);
+    public Object[] toTableRow() {
+        return new Object[] { id, category, amount, date, note };
     }
 }
