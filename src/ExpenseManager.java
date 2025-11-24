@@ -1,65 +1,74 @@
 package src;
 
-import java.io.*;
 import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
+import java.util.stream.Collectors;
 
+/**
+ * Manager handling in-memory list and persistence.
+ */
 public class ExpenseManager {
-    private List<Expense> expenses;
-    private int nextId;
-    private final String FILE = "expenses.csv";
+    private final List<Expense> expenses = new ArrayList<>();
+    private final CSVStorage storage;
 
-    public ExpenseManager() {
-        expenses = new ArrayList<>();
-        nextId = 1;
-        loadExpenses();
+    public ExpenseManager(CSVStorage storage) {
+        this.storage = storage;
+        expenses.addAll(storage.loadAll());
     }
 
-    public void addExpense(String category, double amount, LocalDate date, String note) {
-        Expense expense = new Expense(nextId++, category, amount, date, note);
-        expenses.add(expense);
-        saveExpenses();
+    public List<Expense> getAll() {
+        return new ArrayList<>(expenses);
     }
 
-    public List<Expense> listExpenses() {
-        return Collections.unmodifiableList(expenses);
+    public void add(Expense e) {
+        expenses.add(e);
+        persist();
     }
 
-    public double totalAmount() {
-        return expenses.stream().mapToDouble(Expense::getAmount).sum();
+    public boolean remove(String id) {
+        boolean removed = expenses.removeIf(e -> e.getId().equals(id));
+        if (removed) persist();
+        return removed;
     }
 
-    private void saveExpenses() {
-        try (BufferedWriter writer = new BufferedWriter(new FileWriter(FILE))) {
-            for (Expense e : expenses) {
-                writer.write(e.getId() + "," + e.getCategory() + "," +
-                        e.getAmount() + "," + e.getDate() + "," + e.getNote());
-                writer.newLine();
-            }
-        } catch (IOException e) {
-            System.err.println("Error saving expenses.");
+    public Expense getById(String id) {
+        for (Expense e : expenses) if (e.getId().equals(id)) return e;
+        return null;
+    }
+
+    public void update(Expense e) {
+        // expenses are stored by reference; just persist
+        persist();
+    }
+
+    public List<Expense> filterByCategory(String category) {
+        if (category == null || category.trim().isEmpty()) return getAll();
+        String c = category.trim().toLowerCase();
+        return expenses.stream().filter(e -> e.getCategory().toLowerCase().contains(c)).collect(Collectors.toList());
+    }
+
+    public List<Expense> filterByDateRange(LocalDate from, LocalDate to) {
+        return expenses.stream()
+            .filter(e -> !e.getDate().isBefore(from) && !e.getDate().isAfter(to))
+            .collect(Collectors.toList());
+    }
+
+    public Map<String, Double> monthlySummary() {
+        Map<String, Double> map = new TreeMap<>();
+        DateTimeFormatter fmt = DateTimeFormatter.ofPattern("yyyy-MM");
+        for (Expense e : expenses) {
+            String key = e.getDate().format(fmt);
+            map.put(key, map.getOrDefault(key, 0.0) + e.getAmount());
         }
+        return map;
     }
 
-    private void loadExpenses() {
-        File file = new File(FILE);
-        if (!file.exists()) return;
-        try (BufferedReader reader = new BufferedReader(new FileReader(FILE))) {
-            String line;
-            while ((line = reader.readLine()) != null) {
-                String[] data = line.split(",", 5);
-                if (data.length == 5) {
-                    int id = Integer.parseInt(data[0]);
-                    String category = data[1];
-                    double amount = Double.parseDouble(data[2]);
-                    LocalDate date = LocalDate.parse(data[3]);
-                    String note = data[4];
-                    expenses.add(new Expense(id, category, amount, date, note));
-                    nextId = Math.max(nextId, id + 1);
-                }
-            }
-        } catch (IOException e) {
-            System.err.println("Error loading expenses.");
-        }
+    public Set<String> getCategories() {
+        return expenses.stream().map(Expense::getCategory).filter(s->!s.isEmpty()).collect(Collectors.toSet());
+    }
+
+    private void persist() {
+        storage.saveAll(expenses);
     }
 }
